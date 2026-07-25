@@ -12,6 +12,11 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Root Route (Fixes "Cannot GET /")
+app.get('/', (req, res) => {
+  res.send('Welcome to IdeaaConnect Server!');
+});
+
 // Mongo
 const { MongoClient, ServerApiVersion } = require('mongodb');
 
@@ -35,6 +40,61 @@ async function run() {
   try {
     // Connect the client to the server
     await client.connect();
+
+    const firstdb = client.db("submit_db");
+    const submitsCollection =firstdb.collection("submits");
+
+    // Routes
+    app.get('/submits', async(req, res) => {
+      // res.send('Welcome to IdeaaConnect Server!');
+    });
+
+    // post
+    app.post('/submits', async (req, res) => {
+  try {
+    const submit = req.body;
+
+    // Add system-controlled fields
+    submit.supervisorStatus = "pending";
+    submit.adminStatus = "pending";
+    submit.submittedAt = new Date();
+    submit.updatedAt = new Date();
+
+    const result = await submitsCollection.insertOne(submit);
+
+    res.status(201).send({
+      success: true,
+      message: "Submission successful",
+      insertedId: result.insertedId,
+    });
+
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to submit work",
+    });
+  }
+});
+
+
+
+
+
+
+
+
+
+    // app.post('/submits', async(req, res) => {
+    //   const submit = req.body;
+    //   const result = await submitsCollection.insertOne(submit);
+    //   res.send(result)
+
+      
+    // });
+
+
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
@@ -44,10 +104,7 @@ async function run() {
 }
 run().catch(console.dir);
 
-// Routes
-app.get('/', (req, res) => {
-  res.send('Welcome to IdeaaConnect Server!');
-});
+
 
 app.listen(port, () => {
   console.log(`Example app listening on port ${port}`);
