@@ -1,3 +1,4 @@
+
 const dns = require('dns');
 // Set custom DNS to bypass local ISP/router DNS resolution issues
 dns.setServers(['8.8.8.8', '1.1.1.1']);
@@ -17,15 +18,26 @@ app.get('/', (req, res) => {
   res.send('Welcome to IdeaaConnect Server!');
 });
 
+// app.get("/submits", (req, res) => {
+//   res.send("GET route is working");
+// });
+
 // Mongo
 const { MongoClient, ServerApiVersion } = require('mongodb');
+console.log('mongodb');
 
 // Middleware
 app.use(cors());
 app.use(express.json());
 
 // Connection DB
-const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ijgmrxw.mongodb.net/?appName=Cluster0`;
+
+console.log('before mongodb')
+// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ijgmrxw.mongodb.net/submit_db?retryWrites=true&w=majority&appName=Cluster0`;
+
+const uri=`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ijgmrxw.mongodb.net/submit_db?retryWrites=true&w=majority&appName=Cluster0`;
+
+console.log('connected')
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -36,72 +48,176 @@ const client = new MongoClient(uri, {
   }
 });
 
+// db
+// async function run() {
+//   try {
+//     // Connect the client to the server
+   
+//     // await client.connect();
+//     //  console.log("2. Connected");
+
+//     const firstdb=client.db("submit_db");
+//       console.log("3. Database selected");
+//     const submitsCollection =firstdb.collection("submits");
+//       console.log("4. Collection selected");
+
+
+//     // submits api
+// //     app.get('/submits', async(req, res) => {
+// //         console.log("5. GET /submits");
+// //   res.send("GET route is working");
+
+// // });
+//     app.get("/submits", async (req, res) => {
+//   try {
+//     const result = await submitsCollection.find().toArray();
+//     res.send(result);
+//   } catch (error) {
+//     console.error(error);
+
+//     res.status(500).send({ message: "Failed to fetch submissions" });
+//   }
+// });
+
+//     // app.get('/submits', async(req, res) => {
+//     //    res.send("GET route is working");
+//     //   const query={};
+//     //   const cursor=submitsCollection.find(query);
+//     //   const result=await cursor.toArray();
+//     //   res.send(result);
+//     // });
+    
+//     console.log("6. Route registered");
+
+//    // new work 
+//     //     app.get("/submits", async (req, res) => {
+//     //   const email = req.query.email;
+
+//     //   const query = {
+//     //     studentemail: email,
+//     //   };
+
+//     //   const result = await submitsCollection.find(query).toArray();
+
+//     //   res.send(result);
+//     // });
+
+
+//     //new work end
+
+//     // post
+//     app.post('/submits', async (req, res) => {
+//   try {
+//     const submit = req.body;
+    
+
+//     // Add system-controlled fields
+//     submit.supervisorStatus = "pending";
+//     submit.adminStatus = "pending";
+//     submit.submittedAt = new Date();
+//     submit.updatedAt = new Date();
+//     console.log('posted');
+
+//     const result = await submitsCollection.insertOne(submit);
+
+//     res.status(201).send({
+//       success: true,
+//       message: "Submission successful",
+//       insertedId: result.insertedId,
+//     });
+
+//   } catch (error) {
+//     console.error(error);
+
+//     res.status(500).send({
+//       success: false,
+//       message: "Failed to submit work",
+//     });
+//   }
+// });
+
+
+
+
+
+
+
+
+
+//     // app.post('/submits', async(req, res) => {
+//     //   const submit = req.body;
+//     //   const result = await submitsCollection.insertOne(submit);
+//     //   res.send(result)
+
+      
+//     // });
+
+
+//     // Send a ping to confirm a successful connection
+//     await client.db("admin").command({ ping: 1 });
+//     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+//   } catch (error) {
+//     console.error("Database connection error:", error);
+//   }
+// }
 async function run() {
   try {
     // Connect the client to the server
     await client.connect();
+    console.log("2. Connected to MongoDB successfully!");
 
     const firstdb = client.db("submit_db");
-    const submitsCollection =firstdb.collection("submits");
+    console.log("3. Database selected");
+    const submitsCollection = firstdb.collection("submits");
+    console.log("4. Collection selected");
 
-    // Routes
-    app.get('/submits', async(req, res) => {
-      // res.send('Welcome to IdeaaConnect Server!');
+    // All your routes go here...
+    app.get("/submits", async (req, res) => {
+      try {
+        const result = await submitsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({ message: "Failed to fetch submissions" });
+      }
     });
 
-    // post
+    console.log("6. Route registered");
+
     app.post('/submits', async (req, res) => {
-  try {
-    const submit = req.body;
+      try {
+        const submit = req.body;
+        submit.supervisorStatus = "pending";
+        submit.adminStatus = "pending";
+        submit.submittedAt = new Date();
+        submit.updatedAt = new Date();
+        console.log('posted');
 
-    // Add system-controlled fields
-    submit.supervisorStatus = "pending";
-    submit.adminStatus = "pending";
-    submit.submittedAt = new Date();
-    submit.updatedAt = new Date();
+        const result = await submitsCollection.insertOne(submit);
 
-    const result = await submitsCollection.insertOne(submit);
-
-    res.status(201).send({
-      success: true,
-      message: "Submission successful",
-      insertedId: result.insertedId,
+        res.status(201).send({
+          success: true,
+          message: "Submission successful",
+          insertedId: result.insertedId,
+        });
+      } catch (error) {
+        console.error(error);
+        res.status(500).send({
+          success: false,
+          message: "Failed to submit work",
+        });
+      }
     });
-
-  } catch (error) {
-    console.error(error);
-
-    res.status(500).send({
-      success: false,
-      message: "Failed to submit work",
-    });
-  }
-});
-
-
-
-
-
-
-
-
-
-    // app.post('/submits', async(req, res) => {
-    //   const submit = req.body;
-    //   const result = await submitsCollection.insertOne(submit);
-    //   res.send(result)
-
-      
-    // });
-
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
     console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    
   } catch (error) {
     console.error("Database connection error:", error);
   }
 }
+
 run().catch(console.dir);
 
 
