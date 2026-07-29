@@ -23,7 +23,7 @@ app.get('/', (req, res) => {
 // });
 
 // Mongo
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion , ObjectId } = require('mongodb');
 console.log('mongodb');
 
 // Middleware
@@ -49,117 +49,7 @@ const client = new MongoClient(uri, {
 });
 
 // db
-// async function run() {
-//   try {
-//     // Connect the client to the server
-   
-//     // await client.connect();
-//     //  console.log("2. Connected");
 
-//     const firstdb=client.db("submit_db");
-//       console.log("3. Database selected");
-//     const submitsCollection =firstdb.collection("submits");
-//       console.log("4. Collection selected");
-
-
-//     // submits api
-// //     app.get('/submits', async(req, res) => {
-// //         console.log("5. GET /submits");
-// //   res.send("GET route is working");
-
-// // });
-//     app.get("/submits", async (req, res) => {
-//   try {
-//     const result = await submitsCollection.find().toArray();
-//     res.send(result);
-//   } catch (error) {
-//     console.error(error);
-
-//     res.status(500).send({ message: "Failed to fetch submissions" });
-//   }
-// });
-
-//     // app.get('/submits', async(req, res) => {
-//     //    res.send("GET route is working");
-//     //   const query={};
-//     //   const cursor=submitsCollection.find(query);
-//     //   const result=await cursor.toArray();
-//     //   res.send(result);
-//     // });
-    
-//     console.log("6. Route registered");
-
-//    // new work 
-//     //     app.get("/submits", async (req, res) => {
-//     //   const email = req.query.email;
-
-//     //   const query = {
-//     //     studentemail: email,
-//     //   };
-
-//     //   const result = await submitsCollection.find(query).toArray();
-
-//     //   res.send(result);
-//     // });
-
-
-//     //new work end
-
-//     // post
-//     app.post('/submits', async (req, res) => {
-//   try {
-//     const submit = req.body;
-    
-
-//     // Add system-controlled fields
-//     submit.supervisorStatus = "pending";
-//     submit.adminStatus = "pending";
-//     submit.submittedAt = new Date();
-//     submit.updatedAt = new Date();
-//     console.log('posted');
-
-//     const result = await submitsCollection.insertOne(submit);
-
-//     res.status(201).send({
-//       success: true,
-//       message: "Submission successful",
-//       insertedId: result.insertedId,
-//     });
-
-//   } catch (error) {
-//     console.error(error);
-
-//     res.status(500).send({
-//       success: false,
-//       message: "Failed to submit work",
-//     });
-//   }
-// });
-
-
-
-
-
-
-
-
-
-//     // app.post('/submits', async(req, res) => {
-//     //   const submit = req.body;
-//     //   const result = await submitsCollection.insertOne(submit);
-//     //   res.send(result)
-
-      
-//     // });
-
-
-//     // Send a ping to confirm a successful connection
-//     await client.db("admin").command({ ping: 1 });
-//     console.log("Pinged your deployment. You successfully connected to MongoDB!");
-//   } catch (error) {
-//     console.error("Database connection error:", error);
-//   }
-// }
 async function run() {
   try {
     // Connect the client to the server
@@ -167,11 +57,12 @@ async function run() {
     console.log("2. Connected to MongoDB successfully!");
 
     const firstdb = client.db("submit_db");
-    console.log("3. Database selected");
+    // console.log("3. Database selected");
     const submitsCollection = firstdb.collection("submits");
-    console.log("4. Collection selected");
+    // console.log("4. Collection selected");
 
-    // All your routes go here...
+    // All  routes are here...
+    // submitwork
     app.get("/submits", async (req, res) => {
       try {
         const result = await submitsCollection.find().toArray();
@@ -183,7 +74,71 @@ async function run() {
     });
 
     console.log("6. Route registered");
+   
 
+    // techer dashboard
+    app.get("/teacher-submissions/:email", async (req, res) => {
+  try {
+    const email = req.params.email;
+
+    const query = {
+      supervisorEmail: email,
+    };
+
+    const result = await submitsCollection.find(query).toArray();
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+
+    res.status(500).send({
+      success: false,
+      message: "Failed to fetch submissions",
+    });
+  }
+});
+
+// final approval from teacher
+
+app.patch("/submits/approve/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const filter = {
+      _id: new ObjectId(id),
+    };
+
+    const updateDoc = {
+      $set: {
+        supervisorStatus: "approved",
+        updatedAt: new Date(),
+      },
+    };
+
+    const result = await submitsCollection.updateOne(filter, updateDoc);
+
+    console.log(result);
+
+    res.send(result);
+  } catch (error) {
+    console.error(error);
+    res.status(500).send(error);
+  }
+});
+
+
+// fetch data to final approval page for admin approve
+app.get("/admin-pending-submissions", async (req, res) => {
+  const result = await submitsCollection.find({
+    adminStatus: "pending",
+  }).toArray();
+
+  res.send(result);
+});
+
+
+
+// post data from submitwork
     app.post('/submits', async (req, res) => {
       try {
         const submit = req.body;
