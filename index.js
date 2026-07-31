@@ -127,7 +127,7 @@ app.patch("/submits/approve/:id", async (req, res) => {
 });
 
 
-// fetch data to final approval page for admin approve
+// fetch data to final approval page for admin approve for judge panel
 app.get("/admin-pending-submissions", async (req, res) => {
   const result = await submitsCollection.find({
     adminStatus: "pending",
