@@ -18,9 +18,7 @@ app.get('/', (req, res) => {
   res.send('Welcome to IdeaaConnect Server!');
 });
 
-// app.get("/submits", (req, res) => {
-//   res.send("GET route is working");
-// });
+
 
 // Mongo
 const { MongoClient, ServerApiVersion , ObjectId } = require('mongodb');
@@ -59,6 +57,7 @@ async function run() {
     const firstdb = client.db("submit_db");
     // console.log("3. Database selected");
     const submitsCollection = firstdb.collection("submits");
+    const usersCollection = firstdb.collection("users");
     // console.log("4. Collection selected");
 
     // All  routes are here...
@@ -137,6 +136,132 @@ app.get("/admin-pending-submissions", async (req, res) => {
 });
 
 
+// pending /tracking information
+    app.get("/admin/dashboard-stats", async (req, res) => {
+      try {
+        const pendingSubmission = await submitsCollection.countDocuments({
+          adminStatus: "pending",
+        });
+
+        const assignedEvaluation = await submitsCollection.countDocuments({
+          adminStatus: "judge_assigned",
+        });
+
+        const completedEvaluation = await submitsCollection.countDocuments({
+          evaluationStatus: "completed",
+        });
+
+        const publishedWork = await submitsCollection.countDocuments({
+          publishStatus: "published",
+        });
+
+        // Change this if your notices collection has a different name
+        // const notices = await noticesCollection.countDocuments();
+        
+        const notices = 0;
+
+        res.send({
+          pendingSubmission,
+          assignedEvaluation,
+          completedEvaluation,
+          publishedWork,
+          notices,
+        });
+      } catch (err) {
+        console.log(err);
+        res.status(500).send({ message: "Failed to fetch dashboard stats" });
+      }
+    });
+
+
+// email fetch
+
+  app.get("/users/:email", async (req, res) => {
+
+    try {
+
+      const email = req.params.email;
+
+      const user = await usersCollection.findOne({
+        email,
+      });
+
+      res.send(user);
+
+    } catch (error) {
+
+      console.log(error);
+
+      res.status(500).send({
+        message: "Failed to fetch user",
+      });
+
+    }
+
+  });
+
+//role matching of teacher
+
+    app.get("/teachers", async (req, res) => {
+
+  try {
+
+    const result = await usersCollection.find({
+      role: "teacher",
+    }).toArray();
+
+    res.send(result);
+
+  } catch (error) {
+
+    console.log(error);
+
+    res.status(500).send({
+      message: "Failed to fetch teachers",
+    });
+
+  }
+
+    });
+
+
+// post users
+
+    app.post("/users", async (req, res) => {
+
+      try {
+
+        const user = req.body;
+
+        const existingUser = await usersCollection.findOne({
+          email: user.email,
+        });
+
+        if (existingUser) {
+
+          return res.send({
+            message: "User already exists",
+          });
+
+        }
+
+        const result = await usersCollection.insertOne(user);
+
+        res.send(result);
+
+      } catch (error) {
+
+        console.log(error);
+
+        res.status(500).send({
+          message: "Failed to save user",
+        });
+
+      }
+
+    });
+
+
 
 // post data from submitwork
     app.post('/submits', async (req, res) => {
@@ -163,6 +288,11 @@ app.get("/admin-pending-submissions", async (req, res) => {
         });
       }
     });
+
+
+
+
+
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
