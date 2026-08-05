@@ -97,7 +97,7 @@ async function run() {
   }
 });
 
-// final approval from teacher
+// final approval 
 
 app.patch("/submits/approve/:id", async (req, res) => {
   try {
@@ -135,6 +135,97 @@ app.get("/admin-pending-submissions", async (req, res) => {
   res.send(result);
 });
 
+//after admin approval to assign judge page
+app.patch("/admin/approve-submission/:id", async (req, res) => {
+  try {
+    const id = req.params.id;
+
+    const result = await submitsCollection.updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          adminStatus: "approved",
+          evaluationStatus: "waiting_assignment",
+          updatedAt: new Date(),
+        },
+      }
+    );
+
+    res.send(result);
+  } catch (err) {
+    res.status(500).send(err);
+  }
+});
+
+
+// fetch admin approve submission p & t to judge page
+app.get("/approved-submissions",async(req,res)=>{
+
+    const result=await submitsCollection.find({
+
+        adminStatus:"approved",
+
+        evaluationStatus:"waiting_assignment"
+
+    }).toArray();
+
+    res.send(result);
+
+});
+
+// fetch teacher list
+app.get("/teachers", async (req, res) => {
+  try {
+    const teachers = await usersCollection.find({
+      role: "teacher",
+    }).toArray();
+
+    res.send(teachers);
+  } catch (err) {
+    console.log(err);
+    res.status(500).send({ message: "Failed to fetch teachers" });
+  }
+});
+
+// app.get("/teachers",async(req,res)=>{
+
+//     const result=await teachersCollection.find().toArray();
+
+//     res.send(result);
+
+// });
+
+// assign judge
+
+app.patch("/assign-judges/:id",async(req,res)=>{
+
+    const id=req.params.id;
+
+    const {judge1Email,judge2Email}=req.body;
+
+    const result=await submitsCollection.updateOne(
+
+        {_id:new ObjectId(id)},
+
+        {
+            $set:{
+
+                judge1Email,
+
+                judge2Email,
+
+                evaluationStatus:"assigned",
+
+                updatedAt:new Date()
+
+            }
+        }
+
+    );
+
+    res.send(result);
+
+});
 
 // pending /tracking information
     app.get("/admin/dashboard-stats", async (req, res) => {
