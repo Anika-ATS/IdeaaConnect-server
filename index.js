@@ -316,6 +316,36 @@ app.patch("/assign-judges/:id",async(req,res)=>{
     });
 
 
+
+
+    // after assigned judges by admin to teacher dashboard 
+       app.get("/judge-assignments/:email", async (req, res) => {
+        try {
+          const email = req.params.email;
+
+          const result = await submitsCollection.find({
+            evaluationStatus: "assigned",
+            $or: [
+              { judge1Email: email },
+              { judge2Email: email }
+            ]
+          }).toArray();
+
+          console.log("Logged in teacher:", email);
+          console.log("Assigned works:", result);
+
+          res.send(result);
+        } catch (error) {
+          console.log(error);
+          res.status(500).send({
+            message: "Failed to fetch assigned evaluations",
+          });
+        }
+      });
+
+
+
+
 // post users
 
     app.post("/users", async (req, res) => {
