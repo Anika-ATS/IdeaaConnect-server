@@ -31,13 +31,14 @@ app.use(express.json());
 // Connection DB
 
 console.log('before mongodb')
-// const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ijgmrxw.mongodb.net/submit_db?retryWrites=true&w=majority&appName=Cluster0`;
 
+//uri of mongodb
 const uri=`mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ijgmrxw.mongodb.net/submit_db?retryWrites=true&w=majority&appName=Cluster0`;
 
 console.log('connected')
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
+
 const client = new MongoClient(uri, {
   serverApi: {
     version: ServerApiVersion.v1,
@@ -61,6 +62,8 @@ async function run() {
     // console.log("4. Collection selected");
 
     // All  routes are here...
+
+
     // submitwork
     app.get("/submits", async (req, res) => {
       try {
@@ -173,29 +176,10 @@ app.get("/approved-submissions",async(req,res)=>{
 
 });
 
-// fetch teacher list
-app.get("/teachers", async (req, res) => {
-  try {
-    const teachers = await usersCollection.find({
-      role: "teacher",
-    }).toArray();
 
-    res.send(teachers);
-  } catch (err) {
-    console.log(err);
-    res.status(500).send({ message: "Failed to fetch teachers" });
-  }
-});
 
-// app.get("/teachers",async(req,res)=>{
 
-//     const result=await teachersCollection.find().toArray();
 
-//     res.send(result);
-
-// });
-
-// assign judge
 
 app.patch("/assign-judges/:id",async(req,res)=>{
 
@@ -248,6 +232,8 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
         const completedEvaluation = await submitsCollection.countDocuments({
           evaluationStatus: "completed",
+          // publishStatus: "pending",
+          result: "Pass",
         });
 
         const publishedWork = await submitsCollection.countDocuments({
@@ -307,6 +293,10 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
         const result = await usersCollection.find({
           role: "teacher",
+            }).project({
+              name: 1,
+              email: 1,
+              _id: 0,
         }).toArray();
 
         res.send(result);
@@ -506,7 +496,9 @@ app.patch("/assign-judges/:id",async(req,res)=>{
         try {
 
           const result = await submitsCollection.find({
-            evaluationStatus: "completed"
+              evaluationStatus: "completed",
+              publishStatus: "pending",
+              result: "Pass"
           }).toArray();
 
           res.send(result);
@@ -525,20 +517,60 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
       app.patch("/publish-work/:id", async (req, res) => {
 
-          const id = req.params.id;
+        const id = req.params.id;
 
-          const result = await submitsCollection.updateOne(
-            { _id: new ObjectId(id) },
-            {
-              $set: {
-                publishStatus: "published",
-                publishedAt: new Date()
-              }
+        const result = await submitsCollection.updateOne(
+          { _id: new ObjectId(id) },
+          {
+            $set: {
+              publishStatus: "published",
+              publishedAt: new Date(),
+               publicationYear: new Date().getFullYear().toString()
             }
-          );
+          }
+        );
 
-          res.send(result);
+        res.send(result);
       });
+      
+      // get projects to publish
+
+      app.get("/projects", async (req, res) => {
+
+        const result = await submitsCollection.find({
+
+          publishStatus: "published",
+
+          workType: "project"
+
+        }).toArray();
+
+        res.send(result);
+
+      });
+
+       // get thesis to publish
+
+      app.get("/thesis", async (req, res) => {
+
+        const result = await submitsCollection.find({
+
+          publishStatus: "published",
+
+          workType: "thesis"
+
+        }).toArray();
+
+        res.send(result);
+
+      });
+
+
+
+
+
+
+
 
     // rejected btn details 
     app.patch("/reject-work/:id", async (req, res) => {
@@ -602,6 +634,7 @@ app.patch("/assign-judges/:id",async(req,res)=>{
     app.post('/submits', async (req, res) => {
       try {
         const submit = req.body;
+
         submit.supervisorStatus = "pending";
         submit.adminStatus = "pending";
         submit.submittedAt = new Date();
