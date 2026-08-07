@@ -208,16 +208,21 @@ app.patch("/assign-judges/:id",async(req,res)=>{
         {_id:new ObjectId(id)},
 
         {
-            $set:{
-
+            $set: {
                 judge1Email,
-
                 judge2Email,
 
-                evaluationStatus:"assigned",
+                judge1Evaluation: null,
+                judge2Evaluation: null,
 
-                updatedAt:new Date()
+                totalMarks: 30,
+                passMarks: 15,
 
+                averageMarks: null,
+                result: null,
+
+                evaluationStatus: "assigned",
+                updatedAt: new Date()
             }
         }
 
@@ -234,8 +239,11 @@ app.patch("/assign-judges/:id",async(req,res)=>{
           adminStatus: "pending",
         });
 
+        // const assignedEvaluation = await submitsCollection.countDocuments({
+        //   adminStatus: "judge_assigned",
+        // });
         const assignedEvaluation = await submitsCollection.countDocuments({
-          adminStatus: "judge_assigned",
+          evaluationStatus: "assigned",
         });
 
         const completedEvaluation = await submitsCollection.countDocuments({
@@ -291,27 +299,27 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
   });
 
-//role matching of teacher
+   //role matching of teacher
 
     app.get("/teachers", async (req, res) => {
 
-  try {
+      try {
 
-    const result = await usersCollection.find({
-      role: "teacher",
-    }).toArray();
+        const result = await usersCollection.find({
+          role: "teacher",
+        }).toArray();
 
-    res.send(result);
+        res.send(result);
 
-  } catch (error) {
+      } catch (error) {
 
-    console.log(error);
+        console.log(error);
 
-    res.status(500).send({
-      message: "Failed to fetch teachers",
-    });
+        res.status(500).send({
+          message: "Failed to fetch teachers",
+        });
 
-  }
+      }
 
     });
 
@@ -342,6 +350,212 @@ app.patch("/assign-judges/:id",async(req,res)=>{
           });
         }
       });
+
+
+      //  evaluate page 
+      app.get("/submission/:id", async (req, res) => {
+        try {
+          const id = req.params.id;
+
+          const result = await submitsCollection.findOne({
+            _id: new ObjectId(id),
+          });
+
+          res.send(result);
+
+        } catch (error) {
+          console.log(error);
+          res.status(500).send({
+            message: "Failed to fetch submission",
+          });
+        }
+      });
+
+      // submit evaluation
+      app.patch("/submit-evaluation/:id", async (req, res) => {
+          try {
+
+            const id = req.params.id;
+
+            const {
+              judgeEmail,
+              marks,
+              totalMarks,
+              passMarks,
+              comment,
+            } = req.body;
+
+            const submission = await submitsCollection.findOne({
+              _id: new ObjectId(id),
+            });
+
+            if (!submission) {
+              return res.status(404).send({
+                message: "Submission not found",
+              });
+            }
+
+            let updateDoc = {};
+
+            // Judge 1 submits
+            if (submission.judge1Email === judgeEmail) {
+
+              if (submission.judge1Evaluation) {
+                return res.send({
+                  message: "Judge 1 already submitted.",
+                });
+              }
+
+              updateDoc.judge1Evaluation = {
+                marks,
+                comment,
+              };
+              
+              updateDoc.totalMarks = totalMarks;
+              updateDoc.passMarks = passMarks;
+            }
+
+            // Judge 2 submits
+            else if (submission.judge2Email === judgeEmail) {
+
+              if (submission.judge2Evaluation) {
+                return res.send({
+                  message: "Judge 2 already submitted.",
+                });
+              }
+
+              updateDoc.judge2Evaluation = {
+                marks,
+                comment,
+              };
+              updateDoc.totalMarks = totalMarks;
+              updateDoc.passMarks = passMarks;
+            }
+
+            else {
+              return res.status(403).send({
+                message: "You are not assigned as a judge.",
+              });
+            }
+
+            updateDoc.updatedAt = new Date();
+
+            await submitsCollection.updateOne(
+              { _id: new ObjectId(id) },
+              {
+                $set: updateDoc,
+              }
+            );
+
+            // Fetch updated submission
+            const updatedSubmission = await submitsCollection.findOne({
+              _id: new ObjectId(id),
+            });
+
+            // If both judges have evaluated
+            if (
+              updatedSubmission.judge1Evaluation &&
+              updatedSubmission.judge2Evaluation
+            ) {
+
+              const averageMarks =
+                (
+                  updatedSubmission.judge1Evaluation.marks +
+                  updatedSubmission.judge2Evaluation.marks
+                ) / 2;
+
+              const result =
+                averageMarks >= updatedSubmission.passMarks
+                  ? "Pass"
+                  : "Fail";
+
+              await submitsCollection.updateOne(
+                { _id: new ObjectId(id) },
+                {
+                  $set: {
+                    averageMarks,
+                    result,
+                    evaluationStatus: "completed",
+                  },
+                }
+              );
+            }
+
+            res.send({
+              modifiedCount: 1,
+            });
+
+          } catch (error) {
+
+            console.log(error);
+
+            res.status(500).send({
+              message: "Evaluation submission failed",
+            });
+          }
+      });
+
+
+
+
+
+
+
+      // after completed evaluation
+      app.get("/evaluation-results", async (req, res) => {
+        try {
+
+          const result = await submitsCollection.find({
+            evaluationStatus: "completed"
+          }).toArray();
+
+          res.send(result);
+
+        } catch (error) {
+
+          console.log(error);
+
+          res.status(500).send({
+            message: "Failed to fetch evaluation results"
+          });
+        }
+      });
+
+      // publish result btn details
+
+      app.patch("/publish-work/:id", async (req, res) => {
+
+          const id = req.params.id;
+
+          const result = await submitsCollection.updateOne(
+            { _id: new ObjectId(id) },
+            {
+              $set: {
+                publishStatus: "published",
+                publishedAt: new Date()
+              }
+            }
+          );
+
+          res.send(result);
+      });
+
+    // rejected btn details 
+    app.patch("/reject-work/:id", async (req, res) => {
+
+      const id = req.params.id;
+
+      const result = await submitsCollection.updateOne(
+        { _id: new ObjectId(id) },
+        {
+          $set: {
+            publishStatus: "rejected"
+          }
+        }
+      );
+
+      res.send(result);
+    });
 
 
 
