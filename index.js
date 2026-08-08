@@ -59,6 +59,7 @@ async function run() {
     // console.log("3. Database selected");
     const submitsCollection = firstdb.collection("submits");
     const usersCollection = firstdb.collection("users");
+    const noticeCollection = firstdb.collection("notice");
     // console.log("4. Collection selected");
 
     // All  routes are here...
@@ -80,11 +81,11 @@ async function run() {
 
     // techer dashboard
     app.get("/teacher-submissions/:email", async (req, res) => {
-  try {
-    const email = req.params.email;
+    try {
+      const email = req.params.email;
 
-    const query = {
-      supervisorEmail: email,
+      const query = {
+        supervisorEmail: email,
     };
 
     const result = await submitsCollection.find(query).toArray();
@@ -591,6 +592,30 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
 
 
+    // noticePage
+
+    app.get("/notices", async (req, res) => {
+        try {
+
+          const notices = await noticeCollection
+            .find()
+            .sort({ date: -1 })
+            .toArray();
+
+          res.send(notices);
+
+        } catch (error) {
+
+          console.error("Failed to fetch notices:", error);
+
+          res.status(500).send({
+            message: "Failed to fetch notices",
+          });
+
+        }
+    });
+
+
 
 // post users
 
@@ -653,6 +678,29 @@ app.patch("/assign-judges/:id",async(req,res)=>{
         res.status(500).send({
           success: false,
           message: "Failed to submit work",
+        });
+      }
+    });
+
+// notices page
+    app.post("/notices", async (req, res) => {
+      try {
+        const notice = req.body;
+
+        const result = await noticeCollection.insertOne(notice);
+
+        res.send({
+          success: true,
+          message: "Notice published successfully",
+          insertedId: result.insertedId,
+        });
+
+      } catch (error) {
+        console.error("Notice creation error:", error);
+
+        res.status(500).send({
+          success: false,
+          message: "Failed to publish notice",
         });
       }
     });
