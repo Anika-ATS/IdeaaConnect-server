@@ -18,7 +18,17 @@ app.get('/', (req, res) => {
   res.send('Welcome to IdeaaConnect Server!');
 });
 
-
+// {
+//   "_id": {
+//     "$oid": "6a724dcb5f49cc2878611527"
+//   },
+//   "name": "Mayesha Tarannum",
+//   "email": "mayeshatarannum61@gmail.com",
+//   "role": "student",
+//   "batch": "7",
+//   "idNumber": "2023822069",
+//   "createdAt": "2026-08-04T20:38:35.317Z"
+// }
 
 // Mongo
 const { MongoClient, ServerApiVersion , ObjectId } = require('mongodb');
@@ -56,13 +66,80 @@ async function run() {
     console.log("2. Connected to MongoDB successfully!");
 
     const firstdb = client.db("submit_db");
-    // console.log("3. Database selected");
+   
     const submitsCollection = firstdb.collection("submits");
+   
     const usersCollection = firstdb.collection("users");
+    const adminCollection = firstdb.collection("admins");
+     const pendingUserCollection = firstdb.collection("pendingUsers");
     const noticeCollection = firstdb.collection("notice");
-    // console.log("4. Collection selected");
+  
 
     // All  routes are here...
+
+    // app.get("/admins/:email", async (req, res) => {
+    //   try {
+    //     const email = req.params.email;
+
+    //     const admin = await adminCollection.findOne({
+    //       email: email,
+    //       role: "admin",
+    //     });
+
+    //     if (!admin) {
+    //       return res.status(404).send({
+    //         message: "Admin not found",
+    //       });
+    //     }
+
+    //     res.send(admin);
+
+    //   } catch (error) {
+    //     console.error("Admin fetch error:", error);
+
+    //     res.status(500).send({
+    //       message: "Failed to fetch admin",
+    //     });
+    //   }
+    // });
+    
+    app.get("/admins/:email", async (req, res) => {
+      try {
+        const email = req.params.email;
+
+        console.log("=================================");
+        console.log("ADMIN ROUTE CALLED");
+        console.log("EMAIL:", email);
+
+        const allAdmins = await adminCollection.find({}).toArray();
+
+        console.log("ALL ADMINS:", allAdmins);
+
+        const admin = await adminCollection.findOne({
+          email: email,
+          role: "admin",
+        });
+
+        console.log("MATCHED ADMIN:", admin);
+        console.log("=================================");
+
+        if (!admin) {
+          return res.status(404).send({
+            message: "Admin not found",
+            searchedEmail: email,
+          });
+        }
+
+        res.send(admin);
+
+      } catch (error) {
+        console.error("ADMIN ERROR:", error);
+
+        res.status(500).send({
+          message: "Failed to fetch admin",
+        });
+      }
+    });
 
 
     // submitwork
@@ -79,7 +156,7 @@ async function run() {
     console.log("6. Route registered");
    
 
-    // techer dashboard
+    // get techer dashboard
     app.get("/teacher-submissions/:email", async (req, res) => {
     try {
       const email = req.params.email;
@@ -242,9 +319,9 @@ app.patch("/assign-judges/:id",async(req,res)=>{
         });
 
         // Change this if your notices collection has a different name
-        // const notices = await noticesCollection.countDocuments();
+        const notices = await noticesCollection.countDocuments();
         
-        const notices = 0;
+        // const notices = 0;
 
         res.send({
           pendingSubmission,
@@ -259,8 +336,29 @@ app.patch("/assign-judges/:id",async(req,res)=>{
       }
     });
 
+// get pending users
+  app.get("/pending-user", async (req, res) => {
+    try {
+      const users = await pendingUserCollection
+        .find()
+        .sort({ createdAt: -1 })
+        .toArray();
 
-// email fetch
+      res.send(users);
+
+    } catch (error) {
+      console.error(error);
+
+      res.status(500).send({
+        message: "Failed to fetch pending users.",
+      });
+    }
+  });
+
+
+
+
+// users email fetch
 
   app.get("/users/:email", async (req, res) => {
 
@@ -589,7 +687,71 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
       res.send(result);
     });
+    
 
+    //approve user here
+    app.patch("/pending-user/approve/:id", async (req, res) => {
+      try {
+        const id = req.params.id;
+
+        // Find pending user
+        const pendingUser = await pendingUserCollection.findOne({
+          _id: new ObjectId(id),
+        });
+
+        if (!pendingUser) {
+          return res.status(404).send({
+            message: "Pending user not found.",
+          });
+        }
+
+        // Check if already exists in users collection
+        const existingUser = await usersCollection.findOne({
+          email: pendingUser.email,
+        });
+
+        if (existingUser) {
+          return res.status(409).send({
+            message: "This user already exists in the users collection.",
+          });
+        }
+
+        // Prepare approved user data
+        const approvedUser = {
+          name: pendingUser.name,
+          email: pendingUser.email,
+          role: pendingUser.role,
+          batch: pendingUser.role === "student"
+            ? pendingUser.batch
+            : "",
+          idNumber: pendingUser.idNumber,
+          createdAt: pendingUser.createdAt,
+        };
+
+        // Insert into users collection
+        const userResult = await usersCollection.insertOne(
+          approvedUser
+        );
+
+        // Delete from pendingUsers collection
+        await pendingUserCollection.deleteOne({
+          _id: new ObjectId(id),
+        });
+
+        res.send({
+          success: true,
+          message: "User approved successfully.",
+          insertedId: userResult.insertedId,
+        });
+
+      } catch (error) {
+        console.error("Approve user error:", error);
+
+        res.status(500).send({
+          message: "Failed to approve user.",
+        });
+      }
+    });
 
 
     // noticePage
@@ -601,7 +763,7 @@ app.patch("/assign-judges/:id",async(req,res)=>{
             .find()
             .sort({ date: -1 })
             .toArray();
-
+v
           res.send(notices);
 
         } catch (error) {
@@ -618,6 +780,48 @@ app.patch("/assign-judges/:id",async(req,res)=>{
 
 
 // post users
+    app.post("/pending-user", async (req, res) => {
+      try {
+        const userInfo = req.body;
+
+        // Check whether this email already exists
+        const existingUser = await usersCollection.findOne({
+          email: userInfo.email,
+        });
+
+        if (existingUser) {
+          return res.status(409).send({
+            message: "This email is already approved.",
+          });
+        }
+
+        // Check whether already waiting for approval
+        const existingPendingUser =
+          await pendingUserCollection.findOne({
+            email: userInfo.email,
+          });
+
+        if (existingPendingUser) {
+          return res.status(409).send({
+            message: "This account is already waiting for approval.",
+          });
+        }
+
+        const result = await pendingUserCollection.insertOne(
+          userInfo
+        );
+
+        res.send(result);
+
+      } catch (error) {
+        console.error(error);
+
+        res.status(500).send({
+          message: "Failed to submit registration for approval.",
+        });
+      }
+    });
+
 
     app.post("/users", async (req, res) => {
 
